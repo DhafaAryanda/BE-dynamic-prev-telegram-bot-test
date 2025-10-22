@@ -9,6 +9,7 @@ export interface BotEvents {
   "callback:received": (callbackQuery: CallbackQuery, user: User) => void;
   "command:start": (message: Message, user: User) => void;
   "command:help": (message: Message, user: User) => void;
+  "command:stats": (message: Message, user: User) => void;
   "error:bot": (error: Error, context?: any) => void;
   "error:database": (error: Error, context?: any) => void;
 }

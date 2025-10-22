@@ -70,7 +70,34 @@ Make sure PostgreSQL is running and create the database:
 CREATE DATABASE telegram_bot_db;
 ```
 
-### 4. Run the Application
+### 4. Setup Webhook (Required!)
+
+The bot uses webhook mode. You need to set up webhook before the bot can receive messages.
+
+**For Development with Ngrok:**
+
+```bash
+# Terminal 1: Start ngrok
+ngrok http 3000
+
+# Terminal 2: Start bot
+npm run dev
+
+# Terminal 3: Set webhook (replace with your ngrok URL)
+node setup-webhook.js https://xxxx.ngrok-free.app
+```
+
+**Verify webhook:**
+
+```bash
+node check-webhook.js
+```
+
+**Important**: Ngrok URLs expire after 2 hours (free tier). You'll need to reset webhook with new URL.
+
+📖 **For detailed troubleshooting, see [WEBHOOK_SETUP_GUIDE.md](WEBHOOK_SETUP_GUIDE.md)**
+
+### 5. Run the Application
 
 **Development:**
 
@@ -130,6 +157,7 @@ src/
 - `/help` - Show help information
 - `/profile` - View user profile
 - `/settings` - Bot settings
+- `/stats` - Show bot statistics
 
 ## Development
 

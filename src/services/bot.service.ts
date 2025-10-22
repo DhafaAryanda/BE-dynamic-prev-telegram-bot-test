@@ -37,6 +37,15 @@ export class BotService {
     try {
       // Set bot commands
       await this.setBotCommands();
+
+      // Auto-set webhook in production
+      if (
+        config.server.nodeEnv === "production" &&
+        config.telegram.webhookUrl
+      ) {
+        await this.autoSetWebhook();
+      }
+
       logger.info("✅ Bot service initialized successfully");
     } catch (error) {
       logger.error("❌ Error initializing bot service", { error });
@@ -50,6 +59,7 @@ export class BotService {
       { command: "help", description: "Show help information" },
       { command: "profile", description: "Show your profile" },
       { command: "settings", description: "Bot settings" },
+      { command: "stats", description: "Show bot statistics" },
     ];
 
     await this.bot.setMyCommands(commands);
@@ -204,6 +214,24 @@ export class BotService {
   // Callback registration
   registerCallback(callback: BotCallback): void {
     this.callbacks.push(callback);
+  }
+
+  // Auto-set webhook for production
+  private async autoSetWebhook(): Promise<void> {
+    try {
+      const webhookUrl = `${config.telegram.webhookUrl}/webhook`;
+      const secretToken = config.telegram.webhookSecret;
+
+      await this.bot.setWebHook(webhookUrl, {
+        secret_token: secretToken,
+        allowed_updates: ["message", "callback_query"],
+      });
+
+      logger.info(`🔗 Webhook auto-set to: ${webhookUrl}`);
+    } catch (error) {
+      logger.error("❌ Failed to auto-set webhook", { error });
+      // Don't throw error, just log it - webhook can be set manually
+    }
   }
 
   // Get bot instance for advanced usage

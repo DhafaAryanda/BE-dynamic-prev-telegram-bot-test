@@ -70,6 +70,13 @@ export class EventHandlers {
       logger.info(`❓ Help command from ${user.getDisplayName()}`);
     });
 
+    botEventEmitter.on(
+      "command:stats",
+      async (message: Message, user: User) => {
+        logger.info(`📊 Stats command from ${user.getDisplayName()}`);
+      }
+    );
+
     // Error handlers
     botEventEmitter.on("error:bot", (error: Error, context?: any) => {
       logger.error("🤖 Bot Error", { message: error.message, context });

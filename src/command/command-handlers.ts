@@ -38,6 +38,12 @@ export class CommandHandlers {
       handler: this.handleSettings.bind(this),
     });
 
+    this.botService.registerCommand({
+      command: "/stats",
+      description: "Show bot statistics",
+      handler: this.handleStats.bind(this),
+    });
+
     // Register callbacks
     this.botService.registerCallback({
       pattern: /^settings_/,
@@ -60,6 +66,7 @@ Available commands:
 /help - Show help information
 /profile - View your profile
 /settings - Bot settings
+/stats - Show bot statistics
 
 How can I help you today?
     `.trim();
@@ -83,6 +90,7 @@ How can I help you today?
 /help - Show this help message
 /profile - View your profile
 /settings - Bot settings
+/stats - Show bot statistics
 
 <b>Features:</b>
 • User management
@@ -154,6 +162,67 @@ Choose an option to configure:
       parse_mode: "HTML",
       reply_markup: keyboard,
     });
+  }
+
+  private async handleStats(message: Message): Promise<void> {
+    if (!message.from) return;
+
+    const user = await this.getUser(message.from.id);
+    botEventEmitter.emit("command:stats", message, user);
+
+    try {
+      // Get bot statistics
+      const totalUsers = await this.userRepository.count();
+      const premiumUsers = await this.userRepository.countPremiumUsers();
+
+      // Get users active today (last 24 hours)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const activeUsersToday = await this.userRepository.countActiveUsers(
+        yesterday
+      );
+
+      // Get users registered this week
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const newUsersThisWeek = await this.userRepository.countNewUsers(weekAgo);
+
+      // Bot uptime
+      const uptimeSeconds = Math.floor(process.uptime());
+      const uptimeHours = Math.floor(uptimeSeconds / 3600);
+      const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
+      const uptimeFormatted = `${uptimeHours}h ${uptimeMinutes}m`;
+
+      const statsText = `
+📊 <b>Bot Statistics</b>
+
+<b>👥 Users:</b>
+• Total Users: <b>${totalUsers}</b>
+• Premium Users: <b>${premiumUsers}</b> ⭐
+• Active Today: <b>${activeUsersToday}</b>
+• New This Week: <b>+${newUsersThisWeek}</b> 🎉
+
+<b>⚙️ System:</b>
+• Uptime: <b>${uptimeFormatted}</b>
+• Environment: <b>${process.env.NODE_ENV || "development"}</b>
+• Memory Usage: <b>${Math.round(
+        process.memoryUsage().heapUsed / 1024 / 1024
+      )} MB</b>
+
+<b>📅 Generated:</b> ${new Date().toLocaleString()}
+      `.trim();
+
+      await this.botService.sendMessage(message.chat.id, statsText, {
+        parse_mode: "HTML",
+      });
+    } catch (error) {
+      logger.error("Error fetching stats", { error });
+      await this.botService.sendMessage(
+        message.chat.id,
+        "❌ Failed to fetch statistics. Please try again later.",
+        { parse_mode: "HTML" }
+      );
+    }
   }
 
   private async handleSettingsCallback(callbackQuery: any): Promise<void> {

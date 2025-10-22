@@ -89,18 +89,44 @@ export class UserRepository {
     }
   }
 
-  async countActiveUsers(days: number = 7): Promise<number> {
+  async count(): Promise<number> {
     try {
-      const date = new Date();
-      date.setDate(date.getDate() - days);
+      return await this.repository.count();
+    } catch (error) {
+      throw new DatabaseError("Failed to count users");
+    }
+  }
 
+  async countPremiumUsers(): Promise<number> {
+    try {
+      return await this.repository.count({
+        where: { isPremium: true },
+      });
+    } catch (error) {
+      throw new DatabaseError("Failed to count premium users");
+    }
+  }
+
+  async countActiveUsers(since: Date): Promise<number> {
+    try {
       return await this.repository
         .createQueryBuilder("user")
-        .where("user.lastActivity >= :date", { date })
+        .where("user.lastActivity >= :since", { since })
         .andWhere("user.isActive = :isActive", { isActive: true })
         .getCount();
     } catch (error) {
       throw new DatabaseError("Failed to count active users");
+    }
+  }
+
+  async countNewUsers(since: Date): Promise<number> {
+    try {
+      return await this.repository
+        .createQueryBuilder("user")
+        .where("user.createdAt >= :since", { since })
+        .getCount();
+    } catch (error) {
+      throw new DatabaseError("Failed to count new users");
     }
   }
 }

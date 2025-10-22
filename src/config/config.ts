@@ -13,13 +13,13 @@ export const config = {
     webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || "",
   },
   database: {
-    host: process.env.DB_HOST || "localhost",
-    port: parseInt(process.env.DB_PORT || "5432", 10),
-    username: process.env.DB_USERNAME || "postgres",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_DATABASE || "telegram_bot_db",
-    synchronize: process.env.TYPEORM_SYNCHRONIZE === "true",
-    logging: process.env.TYPEORM_LOGGING === "true",
+    host: process.env.DATABASE_HOST || "localhost",
+    port: parseInt(process.env.DATABASE_PORT || "5432", 10),
+    username: process.env.DATABASE_USERNAME || "postgres",
+    password: process.env.DATABASE_PASSWORD || "",
+    database: process.env.DATABASE_NAME || "telegram_bot_db",
+    synchronize: process.env.DATABASE_SYNCHRONIZE === "true",
+    logging: process.env.DATABASE_LOGGING === "true",
   },
 };
 
