@@ -1,15 +1,7 @@
 import { EventEmitter } from "events";
 import { Message, CallbackQuery } from "node-telegram-bot-api";
-import { User } from "../database/entities/user.entity";
 
 export interface BotEvents {
-  "user:register": (user: User) => void;
-  "user:update": (user: User) => void;
-  "message:received": (message: Message, user: User) => void;
-  "callback:received": (callbackQuery: CallbackQuery, user: User) => void;
-  "command:start": (message: Message, user: User) => void;
-  "command:help": (message: Message, user: User) => void;
-  "command:stats": (message: Message, user: User) => void;
   "error:bot": (error: Error, context?: any) => void;
   "error:database": (error: Error, context?: any) => void;
 }

@@ -12,6 +12,8 @@
   "license": "ISC",
   "description": "Telegram Bot with PostgreSQL and TypeORM",
   "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "cors": "^2.8.5",
@@ -19,7 +21,7 @@
     "express": "^4.18.2",
     "helmet": "^7.1.0",
     "node-telegram-bot-api": "^0.64.0",
-    "pg": "^8.11.3",
+    "pg": "^8.16.3",
     "reflect-metadata": "^0.1.13",
     "typeorm": "^0.3.17"
   },

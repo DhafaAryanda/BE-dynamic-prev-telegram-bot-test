@@ -1,16 +1,12 @@
 import { Message } from "node-telegram-bot-api";
 import { BotService } from "../services/bot.service";
-import { User } from "../database/entities/user.entity";
 import { botEventEmitter } from "../events/event-emitter";
-import { UserRepository } from "../database/repositories/user.repository";
 import { logger } from "../utils/logger";
+import { AppDataSource } from "../database/data-source";
+import { UserEntity } from "../database/entities/user.entity";
 
 export class CommandHandlers {
-  private userRepository: UserRepository;
-
-  constructor(private botService: BotService) {
-    this.userRepository = new UserRepository();
-  }
+  constructor(private botService: BotService) {}
 
   async initialize(): Promise<void> {
     // Register all commands
@@ -21,27 +17,15 @@ export class CommandHandlers {
     });
 
     this.botService.registerCommand({
-      command: "/help",
-      description: "Show help information",
-      handler: this.handleHelp.bind(this),
-    });
-
-    this.botService.registerCommand({
-      command: "/profile",
-      description: "Show your profile",
-      handler: this.handleProfile.bind(this),
-    });
-
-    this.botService.registerCommand({
       command: "/settings",
       description: "Bot settings",
       handler: this.handleSettings.bind(this),
     });
 
     this.botService.registerCommand({
-      command: "/stats",
-      description: "Show bot statistics",
-      handler: this.handleStats.bind(this),
+      command: "/user",
+      description: "Get all users from database",
+      handler: this.handleUser.bind(this),
     });
 
     // Register callbacks
@@ -54,79 +38,25 @@ export class CommandHandlers {
   private async handleStart(message: Message): Promise<void> {
     if (!message.from) return;
 
-    const user = await this.getUser(message.from.id);
-    botEventEmitter.emit("command:start", message, user);
+    // const user = await this.getUser(message.from.id);
+    // botEventEmitter.emit("command:start", message, user);
 
     const welcomeText = `
 🎉 Welcome to Safir Bot!
 
-Hello ${user.getDisplayName()}! I'm your personal assistant bot.
+Hello! I'm your personal assistant bot.
 
 Available commands:
 /help - Show help information
 /profile - View your profile
 /settings - Bot settings
 /stats - Show bot statistics
+/user - Get all users from database
 
 How can I help you today?
     `.trim();
 
     await this.botService.sendMessage(message.chat.id, welcomeText, {
-      parse_mode: "HTML",
-    });
-  }
-
-  private async handleHelp(message: Message): Promise<void> {
-    if (!message.from) return;
-
-    const user = await this.getUser(message.from.id);
-    botEventEmitter.emit("command:help", message, user);
-
-    const helpText = `
-📚 <b>Help & Commands</b>
-
-<b>Basic Commands:</b>
-/start - Start the bot
-/help - Show this help message
-/profile - View your profile
-/settings - Bot settings
-/stats - Show bot statistics
-
-<b>Features:</b>
-• User management
-• Event tracking
-• Database integration
-• Webhook support
-
-<b>Need more help?</b>
-Contact the administrator for assistance.
-    `.trim();
-
-    await this.botService.sendMessage(message.chat.id, helpText, {
-      parse_mode: "HTML",
-    });
-  }
-
-  private async handleProfile(message: Message): Promise<void> {
-    if (!message.from) return;
-
-    const user = await this.getUser(message.from.id);
-
-    const profileText = `
-👤 <b>Your Profile</b>
-
-<b>Name:</b> ${user.getFullName()}
-<b>Username:</b> ${user.username ? `@${user.username}` : "Not set"}
-<b>Telegram ID:</b> <code>${user.telegramId}</code>
-<b>Language:</b> ${user.languageCode || "Not set"}
-<b>Premium:</b> ${user.isPremium ? "Yes" : "No"}
-<b>Member since:</b> ${user.createdAt.toLocaleDateString()}
-<b>Last activity:</b> ${
-      user.lastActivity ? user.lastActivity.toLocaleString() : "Never"
-    }
-    `.trim();
-
-    await this.botService.sendMessage(message.chat.id, profileText, {
       parse_mode: "HTML",
     });
   }
@@ -164,63 +94,66 @@ Choose an option to configure:
     });
   }
 
-  private async handleStats(message: Message): Promise<void> {
+  private async handleUser(message: Message): Promise<void> {
     if (!message.from) return;
 
-    const user = await this.getUser(message.from.id);
-    botEventEmitter.emit("command:stats", message, user);
-
     try {
-      // Get bot statistics
-      const totalUsers = await this.userRepository.count();
-      const premiumUsers = await this.userRepository.countPremiumUsers();
+      // Get user repository from TypeORM
+      const userRepository = AppDataSource.getRepository(UserEntity);
 
-      // Get users active today (last 24 hours)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const activeUsersToday = await this.userRepository.countActiveUsers(
-        yesterday
-      );
+      // Fetch all users from database
+      const users = await userRepository.find({
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          email: true,
+          isActive: true,
+          telegramId: true,
+          createdAt: true,
+        },
+        take: 10, // Limit to 10 users to avoid message too long
+      });
 
-      // Get users registered this week
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const newUsersThisWeek = await this.userRepository.countNewUsers(weekAgo);
+      if (users.length === 0) {
+        await this.botService.sendMessage(
+          message.chat.id,
+          "❌ No users found in database."
+        );
+        return;
+      }
 
-      // Bot uptime
-      const uptimeSeconds = Math.floor(process.uptime());
-      const uptimeHours = Math.floor(uptimeSeconds / 3600);
-      const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
-      const uptimeFormatted = `${uptimeHours}h ${uptimeMinutes}m`;
+      // Format user data into readable message
+      let userText = "👥 <b>Users List</b>\n\n";
+      userText += `📊 Total: ${users.length} user(s)\n`;
+      userText += "━━━━━━━━━━━━━━━━━━━━\n\n";
 
-      const statsText = `
-📊 <b>Bot Statistics</b>
+      users.forEach((user, index) => {
+        userText += `<b>${index + 1}. ${user.name}</b>\n`;
+        userText += `   👤 Username: @${user.username}\n`;
+        userText += `   📧 Email: ${user.email}\n`;
+        userText += `   🆔 ID: ${user.id}\n`;
+        userText += `   📱 Telegram ID: ${user.telegramId || "Not linked"}\n`;
+        userText += `   ${user.isActive ? "✅ Active" : "❌ Inactive"}\n`;
+        userText += `   📅 Created: ${new Date(
+          user.createdAt
+        ).toLocaleDateString()}\n`;
+        userText += "\n";
+      });
 
-<b>👥 Users:</b>
-• Total Users: <b>${totalUsers}</b>
-• Premium Users: <b>${premiumUsers}</b> ⭐
-• Active Today: <b>${activeUsersToday}</b>
-• New This Week: <b>+${newUsersThisWeek}</b> 🎉
-
-<b>⚙️ System:</b>
-• Uptime: <b>${uptimeFormatted}</b>
-• Environment: <b>${process.env.NODE_ENV || "development"}</b>
-• Memory Usage: <b>${Math.round(
-        process.memoryUsage().heapUsed / 1024 / 1024
-      )} MB</b>
-
-<b>📅 Generated:</b> ${new Date().toLocaleString()}
-      `.trim();
-
-      await this.botService.sendMessage(message.chat.id, statsText, {
+      await this.botService.sendMessage(message.chat.id, userText, {
         parse_mode: "HTML",
       });
+
+      logger.info("User list requested", {
+        requestedBy: message.from.id,
+        totalUsers: users.length,
+      });
     } catch (error) {
-      logger.error("Error fetching stats", { error });
+      logger.error("Error fetching users", { error });
       await this.botService.sendMessage(
         message.chat.id,
-        "❌ Failed to fetch statistics. Please try again later.",
-        { parse_mode: "HTML" }
+        "❌ Error fetching users from database. Please try again later."
       );
     }
   }
@@ -270,16 +203,5 @@ Choose an option to configure:
       callback_query_id: callbackQuery.id,
       text: "Settings updated!",
     });
-  }
-
-  private async getUser(telegramId: number): Promise<User> {
-    const user = await this.userRepository.findByTelegramId(telegramId);
-
-    if (!user) {
-      logger.error(`User not found`, { telegramId });
-      throw new Error(`User with telegram ID ${telegramId} not found`);
-    }
-
-    return user;
   }
 }

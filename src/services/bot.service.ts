@@ -1,25 +1,21 @@
 import TelegramBot from "node-telegram-bot-api";
 import { config } from "../config/config";
-import { User } from "../database/entities/user.entity";
 import { botEventEmitter } from "../events/event-emitter";
 import {
-  TelegramUpdate,
-  BotCommand,
   BotCallback,
+  BotCommand,
+  TelegramUpdate,
 } from "../types/telegram.types";
+import { BotError } from "../utils/error-handler";
 import { logger } from "../utils/logger";
-import { ErrorHandler, BotError } from "../utils/error-handler";
-import { UserRepository } from "../database/repositories/user.repository";
 
 export class BotService {
   private bot: TelegramBot;
   private commands: Map<string, BotCommand> = new Map();
   private callbacks: BotCallback[] = [];
-  private userRepository: UserRepository;
 
   constructor() {
     this.bot = new TelegramBot(config.telegram.botToken, { polling: false });
-    this.userRepository = new UserRepository();
     this.setupErrorHandlers();
   }
 
@@ -60,6 +56,7 @@ export class BotService {
       { command: "profile", description: "Show your profile" },
       { command: "settings", description: "Bot settings" },
       { command: "stats", description: "Show bot statistics" },
+      { command: "user", description: "Get all users from database" },
     ];
 
     await this.bot.setMyCommands(commands);
@@ -82,12 +79,9 @@ export class BotService {
   private async handleMessage(message: TelegramBot.Message): Promise<void> {
     if (!message.from) return;
 
-    const user = await this.getOrCreateUser(message.from);
-    botEventEmitter.emit("message:received", message, user);
-
     // Handle commands
     if (message.text?.startsWith("/")) {
-      await this.handleCommand(message, user);
+      await this.handleCommand(message);
     }
   }
 
@@ -95,9 +89,6 @@ export class BotService {
     callbackQuery: TelegramBot.CallbackQuery
   ): Promise<void> {
     if (!callbackQuery.from) return;
-
-    const user = await this.getOrCreateUser(callbackQuery.from);
-    botEventEmitter.emit("callback:received", callbackQuery, user);
 
     // Handle callback patterns
     for (const callback of this.callbacks) {
@@ -111,67 +102,13 @@ export class BotService {
     }
   }
 
-  private async handleCommand(
-    message: TelegramBot.Message,
-    user: User
-  ): Promise<void> {
+  private async handleCommand(message: TelegramBot.Message): Promise<void> {
     const commandText = message.text?.split(" ")[0];
     if (!commandText) return;
 
     const command = this.commands.get(commandText);
     if (command) {
       await command.handler(message);
-    }
-  }
-
-  private async getOrCreateUser(telegramUser: TelegramBot.User): Promise<User> {
-    try {
-      let user = await this.userRepository.findByTelegramId(telegramUser.id);
-
-      if (!user) {
-        user = await this.userRepository.create({
-          telegramId: telegramUser.id,
-          firstName: telegramUser.first_name,
-          lastName: telegramUser.last_name,
-          username: telegramUser.username,
-          languageCode: telegramUser.language_code,
-          isBot: telegramUser.is_bot,
-          isPremium: (telegramUser as any).is_premium || false,
-        });
-
-        logger.info(`New user registered: ${user.getDisplayName()}`, {
-          telegramId: user.telegramId,
-        });
-        botEventEmitter.emit("user:register", user);
-      } else {
-        // Update user info if changed
-        const hasChanges =
-          user.firstName !== telegramUser.first_name ||
-          user.lastName !== telegramUser.last_name ||
-          user.username !== telegramUser.username ||
-          user.languageCode !== telegramUser.language_code ||
-          user.isPremium !== ((telegramUser as any).is_premium || false);
-
-        if (hasChanges) {
-          user.firstName = telegramUser.first_name;
-          user.lastName = telegramUser.last_name;
-          user.username = telegramUser.username;
-          user.languageCode = telegramUser.language_code;
-          user.isPremium = (telegramUser as any).is_premium || false;
-
-          await this.userRepository.save(user);
-          logger.debug(`User info updated: ${user.getDisplayName()}`);
-          botEventEmitter.emit("user:update", user);
-        }
-      }
-
-      return user;
-    } catch (error) {
-      ErrorHandler.handle(error as Error, {
-        context: "getOrCreateUser",
-        telegramId: telegramUser.id,
-      });
-      throw error;
     }
   }
 

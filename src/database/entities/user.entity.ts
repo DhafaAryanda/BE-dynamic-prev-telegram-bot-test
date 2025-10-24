@@ -1,57 +1,170 @@
+import * as bcrypt from "bcrypt";
+import { Exclude } from "class-transformer";
 import {
-  Entity,
-  PrimaryGeneratedColumn,
+  BeforeInsert,
+  BeforeUpdate,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
+  DeleteDateColumn,
+  Entity,
+  JoinTable,
+  ManyToMany,
 } from "typeorm";
+import { BaseEntity } from "./base.entity";
+import { roleEntity } from "./role.entity";
 
-@Entity("users")
-@Index(["telegramId"], { unique: true })
-export class User {
-  @PrimaryGeneratedColumn("uuid")
-  id!: string;
+@Entity({
+  name: "m_user",
+})
+export class UserEntity extends BaseEntity {
+  @Column({ unique: true })
+  username: string;
 
-  @Column({ name: "telegram_id", type: "bigint" })
-  telegramId!: number;
+  @Column()
+  name: string;
 
-  @Column({ name: "first_name", nullable: true })
-  firstName?: string;
+  @Column()
+  @Exclude()
+  password: string;
 
-  @Column({ name: "last_name", nullable: true })
-  lastName?: string;
-
-  @Column({ name: "username", nullable: true })
-  username?: string;
-
-  @Column({ name: "language_code", nullable: true })
-  languageCode?: string;
-
-  @Column({ name: "is_bot", default: false })
-  isBot: boolean = false;
-
-  @Column({ name: "is_premium", default: false })
-  isPremium: boolean = false;
-
-  @Column({ name: "is_active", default: true })
-  isActive: boolean = true;
-
-  @Column({ name: "last_activity", type: "timestamp", nullable: true })
-  lastActivity?: Date;
-
-  @CreateDateColumn({ name: "created_at" })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: "updated_at" })
-  updatedAt!: Date;
-
-  // Helper methods
-  getFullName(): string {
-    return `${this.firstName || ""} ${this.lastName || ""}`.trim();
+  @BeforeInsert()
+  @BeforeUpdate()
+  async hashPassword() {
+    if (this.password) {
+      this.password = await bcrypt.hash(this.password, 10);
+    }
   }
 
-  getDisplayName(): string {
-    return this.username ? `@${this.username}` : this.getFullName();
-  }
+  @Column({
+    name: "is_api",
+    default: false,
+  })
+  isApi: boolean;
+
+  @Column({
+    name: "telegram_id",
+    nullable: true,
+  })
+  telegramId: number;
+
+  @Column({
+    name: "telegram_verified_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  telegramVerifiedAt: Date;
+
+  @Column({
+    name: "is_ldap",
+  })
+  isLdap: boolean;
+
+  @Column({
+    name: "activated_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  activatedAt: Date;
+
+  @Column({
+    name: "phone_no",
+    nullable: true,
+  })
+  phoneNo: string;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column({
+    name: "from_date",
+    type: "timestamp",
+    nullable: true,
+  })
+  fromDate: Date;
+
+  @Column({
+    name: "is_2fa_enabled",
+    default: false,
+  })
+  is2faEnabled: boolean;
+
+  @Column({
+    name: "last_login",
+    nullable: true,
+  })
+  lastLogin: string;
+
+  @Column({
+    name: "email_verified_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  emailVerifiedAt: Date;
+
+  @Column({
+    name: "is_active",
+  })
+  isActive: boolean;
+
+  @Column({
+    name: "nda_file_path",
+    nullable: true,
+  })
+  ndaFilePath: string;
+
+  @Column({
+    name: "nda_expired_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  ndaExpiredAt: Date;
+
+  @Column({
+    name: "nda_approved_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  ndaApprovedAt: Date;
+
+  @Column({
+    name: "ppa_approved_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  ppaApprovedAt: Date;
+
+  @Column({ name: "dpa_approved_at", type: "timestamp", nullable: true })
+  dpaApprovedAt: Date;
+
+  @Column({
+    name: "updated_by",
+    nullable: true,
+  })
+  updatedBy: string;
+
+  @Column({
+    name: "created_by",
+    nullable: true,
+  })
+  createdBy: string;
+
+  @DeleteDateColumn({
+    name: "deleted_at",
+    type: "timestamp",
+    nullable: true,
+  })
+  deletedAt: Date;
+
+  @ManyToMany(() => roleEntity, (role) => role.users)
+  @JoinTable({
+    name: "m_user_role", // pivot table
+    joinColumn: {
+      name: "user_id",
+      referencedColumnName: "id",
+    },
+    inverseJoinColumn: {
+      name: "role_id",
+      referencedColumnName: "id",
+    },
+  })
+  roles?: roleEntity[];
 }
